@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NVSL Meet Scoring</title>
   <style>
-    body { font-family: sans-serif; padding: 1rem; margin: auto; max-width: 900px; background-color: #f9f9f9; }
+    body { font-family: sans-serif; padding: 1rem; margin: auto; max-width: 1000px; background-color: #f9f9f9; }
     h1 { font-size: 1.8rem; text-align: center; }
     .event { margin-bottom: 2rem; border-bottom: 1px solid #ccc; padding-bottom: 1rem; background: #fff; border-radius: 8px; padding: 1rem; }
     .stroke-divider { font-weight: bold; font-size: 1.2rem; margin-top: 2rem; padding: 0.5rem; background: #ddeeff; border-left: 5px solid #337ab7; }
-    .lanes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.5rem; margin-top: 0.5rem; }
+    .lanes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem; margin-top: 0.5rem; }
     .lane { text-align: center; border: 1px solid #ddd; border-radius: 6px; padding: 0.5rem; background: #f0f0f0; }
     .place-buttons button { margin: 0.2rem; padding: 0.5rem 1rem; border: none; border-radius: 4px; color: white; font-weight: bold; cursor: pointer; }
     .place-buttons button.selected { outline: 3px solid black; }
@@ -53,16 +53,26 @@
           placeMap[p]++;
         });
 
-        const points = { 1: 5, 2: 3, 3: 1 };
         const awarded = Array(6).fill(0);
 
-        for (let i = 1; i <= 3; i++) {
-          const count = placeMap[i] || 0;
-          if (count > 0) {
-            const each = points[i] / count;
-            event.forEach((p, idx2) => {
-              if (parseInt(p) === i) awarded[idx2] = each;
-            });
+        if (idx < 40) {
+          const points = { 1: 5, 2: 3, 3: 1 };
+          for (let i = 1; i <= 3; i++) {
+            const count = placeMap[i] || 0;
+            if (count > 0) {
+              const each = points[i] / count;
+              event.forEach((p, idx2) => {
+                if (parseInt(p) === i) awarded[idx2] = each;
+              });
+            }
+          }
+        } else {
+          if (event[2] == 1 && event[3] == 1) {
+            awarded[2] = awarded[3] = 2.5;
+          } else if (event[2] == 1) {
+            awarded[2] = 5;
+          } else if (event[3] == 1) {
+            awarded[3] = 5;
           }
         }
 
@@ -75,11 +85,6 @@
 
       document.getElementById("homeScore").textContent = home;
       document.getElementById("awayScore").textContent = away;
-    }
-
-    function updateScore(eventIdx, laneIdx, value) {
-      scores[eventIdx][laneIdx] = value;
-      calculateScore();
     }
 
     for (let i = 0; i < NUM_EVENTS; i++) {
@@ -102,20 +107,23 @@
       const lanes = document.createElement("div");
       lanes.className = "lanes";
 
-      for (let j = 0; j < 6; j++) {
+      const maxLane = i < 40 ? 6 : 4;
+      const minLane = i < 40 ? 0 : 2;
+      const maxPlace = i < 40 ? 3 : 2;
+
+      for (let j = minLane; j < maxLane; j++) {
         const lane = document.createElement("div");
         lane.className = "lane";
 
         const buttonSet = document.createElement("div");
         buttonSet.className = "place-buttons";
 
-        for (let place = 1; place <= 3; place++) {
+        for (let place = 1; place <= maxPlace; place++) {
           const btn = document.createElement("button");
           btn.textContent = place;
-          btn.className = ["gold", "silver", "bronze"][place - 1];
+          btn.className = ["gold", "silver", "bronze"][place - 1] || "bronze";
 
           btn.onclick = () => {
-            // Toggle off if selected again
             if (scores[i][j] == place) {
               scores[i][j] = "";
               btn.classList.remove("selected");
