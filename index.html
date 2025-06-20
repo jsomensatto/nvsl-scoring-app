@@ -1,15 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NVSL Meet Scoring</title>
   <style>
     body { font-family: sans-serif; padding: 1rem; margin: auto; max-width: 1000px; background-color: #f9f9f9; }
     h1, h2 { text-align: center; }
     .team-inputs { display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem; }
-    .team-inputs input { padding: 0.5rem; font-size: 1rem; }
-    .team-inputs button { padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; }
+    .team-inputs input { padding: 0.5rem; font-size: 1rem; width: 200px; }
     .event-block { background: #fff; padding: 1rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 8px; }
     .stroke-header { background: #e0e0ff; font-weight: bold; padding: 0.5rem; margin: 1rem 0 0.5rem; border-radius: 5px; }
     .lane-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem; margin-top: 0.5rem; }
@@ -18,137 +17,49 @@
     .buttons button { width: 2.5rem; height: 2.5rem; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; }
     .buttons .gold { background: gold; } .buttons .silver { background: silver; } .buttons .bronze { background: #cd7f32; color: white; }
     .buttons button.selected { outline: 3px solid black; }
-    .score-summary { margin-top: 0.5rem; font-weight: bold; text-align: center; font-size: 1rem; padding: 0.4rem; background: #f4f4f4; border-radius: 5px; }
+    .score-summary { margin-top: 0.5rem; font-weight: bold; text-align: center; font-size: 1rem; padding: 0.4rem; background: #f4f4f4; border-radius: 5px; margin-top: 0.8rem; }
     .running-total { font-weight: bold; text-align: center; font-size: 1rem; color: #333; margin-top: 0.3rem; }
     .stroke-total { font-weight: bold; text-align: center; font-size: 1rem; margin-top: 0.8rem; padding: 0.3rem; background: #eaf4fc; border-radius: 4px; }
     .win-flag { background: #d4edda; color: #155724; font-weight: bold; text-align: center; padding: 0.5rem; border: 1px solid #c3e6cb; border-radius: 6px; margin-top: 1rem; }
+    @media (max-width: 768px) {
+      body { padding: 0.5rem; }
+      .team-inputs { flex-direction: column; align-items: stretch; }
+      .team-inputs input { width: 100%; margin-bottom: 0.5rem; }
+      .lane-row { grid-template-columns: repeat(2, 1fr); gap: 0.25rem; }
+      .buttons { gap: 0.2rem; }
+      .buttons button { width: 2rem; height: 2rem; font-size: 0.9rem; }
+      .stroke-header, .score-summary, .running-total, .stroke-total { font-size: 0.9rem; padding: 0.3rem; }
+    }
   </style>
 </head>
 <body>
   <h1>NVSL Meet Scoring</h1>
   <div class="team-inputs">
-    <input type="text" id="homeTeam" placeholder="Home Team Name" />
-    <input type="text" id="awayTeam" placeholder="Away Team Name" />
+    <input type="text" id="homeTeam" placeholder="Home Team Name">
+    <input type="text" id="awayTeam" placeholder="Away Team Name">
     <button id="resetScores">Reset Scores</button>
   </div>
-  <div id="meetResult" class="win-flag" style="display:none;"></div>
   <div id="events"></div>
-
+  <div id="meetResult" class="win-flag" style="display:none;"></div>
   <script>
     const NUM_EVENTS = 52;
-    const HOME_LANES = [1, 3, 5];
-    const AWAY_LANES = [2, 4, 6];
-    const PLACE_POINTS = {1:5, 2:3, 3:1};
+    const HOME_LANES = [1,3,5], AWAY_LANES = [2,4,6];
+    const PLACE_POINTS = {1:5,2:3,3:1};
     const STROKES = ["Freestyle","Backstroke","Breaststroke","Butterfly","Relays"];
     const AGE_GROUPS = ["8U Boys","8U Girls","9-10 Boys","9-10 Girls","11-12 Boys","11-12 Girls","13-14 Boys","13-14 Girls","15-18 Boys","15-18 Girls"];
-    const RELAYS = [
-      "8U Boys Relay","8U Girls Relay","9-10 Boys Relay","9-10 Girls Relay",
-      "11-12 Boys Relay","11-12 Girls Relay","13-14 Boys Relay","13-14 Girls Relay",
-      "15-18 Boys Relay","15-18 Girls Relay","Boys Mixed Age Relay","Girls Mixed Age Relay"
-    ];
-
-    let scores = JSON.parse(localStorage.getItem('scores')) || Array(NUM_EVENTS).fill().map(() => Array(6).fill(""));
+    const RELAYS = ["8U Boys Relay","8U Girls Relay","9-10 Boys Relay","9-10 Girls Relay","11-12 Boys Relay","11-12 Girls Relay","13-14 Boys Relay","13-14 Girls Relay","15-18 Boys Relay","15-18 Girls Relay","Boys Mixed Age Relay","Girls Mixed Age Relay"];
+    let scores = JSON.parse(localStorage.getItem('scores')) || Array(NUM_EVENTS).fill().map(()=>Array(6).fill(""));
     const eventsContainer = document.getElementById('events');
-
-    function homeTeam() { return document.getElementById('homeTeam').value.trim() || 'Home'; }
-    function awayTeam() { return document.getElementById('awayTeam').value.trim() || 'Away'; }
-    function updateStorage() { localStorage.setItem('scores', JSON.stringify(scores)); }
-    function formatPts(v) { return Number.isInteger(v) ? v : v.toFixed(1); }
-
-    function calculateEventScore(places) {
-      const counts = {1:0,2:0,3:0};
-      places.forEach(p => { if ([1,2,3].includes(p)) counts[p]++; });
-      const total = 9; let used = 0;
-      const res = Array(6).fill(0);
-      if (counts[1]) {
-        const pts = (total - (counts[2]*PLACE_POINTS[2] + counts[3]*PLACE_POINTS[3])) / counts[1];
-        places.forEach((p,i) => { if (p===1) res[i] = pts; }); used += pts * counts[1];
-      }
-      if (counts[2]) {
-        const pts = (total - used - (counts[3]*PLACE_POINTS[3])) / counts[2];
-        places.forEach((p,i) => { if (p===2) res[i] = pts; }); used += pts * counts[2];
-      }
-      if (counts[3]) {
-        const pts = (total - used) / counts[3];
-        places.forEach((p,i) => { if (p===3) res[i] = pts; });
-      }
-      return res;
-    }
-
-    function render() {
-      eventsContainer.innerHTML = '';
-      for (let i = 0; i < NUM_EVENTS; i++) {
-        if (i % 10 === 0) {
-          const hd = document.createElement('div');
-          hd.className = 'stroke-header';
-          hd.textContent = STROKES[Math.floor(i/10)];
-          eventsContainer.appendChild(hd);
-        }
-        const eb = document.createElement('div'); eb.className = 'event-block'; eb.id = `event-${i}`;
-        const label = i < 40 ? `${AGE_GROUPS[i%10]} ${STROKES[Math.floor(i/10)]}` : RELAYS[i-40];
-        eb.innerHTML = `<h2>Event ${i+1}: ${label}</h2>`;
-        const lr = document.createElement('div'); lr.className = 'lane-row';
-        const lanes = (i>=40 ? [2,3] : [0,1,2,3,4,5]);
-        for (let j=0; j<6; j++) {
-          const ld = document.createElement('div'); ld.className = 'lane';
-          if (!lanes.includes(j)) { ld.innerHTML='&nbsp;'; lr.appendChild(ld); continue; }
-          ld.innerHTML = `<div><strong>Lane ${j+1}</strong></div>`;
-          const bs = document.createElement('div'); bs.className = 'buttons';
-          const maxP = (i>=40 ? 2 : 3);
-          for (let p=1; p<=maxP; p++) {
-            const b = document.createElement('button'); b.textContent = p;
-            b.className = p===1 ? 'gold' : p===2 ? 'silver' : 'bronze';
-            b.onclick = () => { scores[i][j] = (scores[i][j]===p ? "" : p); updateStorage(); render(); };
-            if (scores[i][j] === p) b.classList.add('selected'); bs.appendChild(b);
-          }
-          ld.appendChild(bs); lr.appendChild(ld);
-        }
-        eb.appendChild(lr); eventsContainer.appendChild(eb);
-      }
-      calculateScore();
-    }
-
-    function calculateScore() {
-      let homeTotal=0, awayTotal=0;
-      document.querySelectorAll('.score-summary, .running-total, .stroke-total').forEach(el=>el.remove());
-      for (let i=0; i<NUM_EVENTS; i++) {
-        const row = scores[i]; let filled=row.filter(p=>p).length; let eventHome=0, eventAway=0; let tie=false;
-        if (i>=40) {
-          const homeWin=row[2]===1, awayWin=row[3]===1;
-          if (homeWin && awayWin) { eventHome=2.5; eventAway=2.5; tie=true; }
-          else if (homeWin) eventHome=5;
-          else if (awayWin) eventAway=5;
-        } else {
-          const ptsArr = calculateEventScore(row);
-          const pc = {}; row.forEach(p=>p&&(pc[p]=(pc[p]||0)+1)); if (Object.values(pc).some(c=>c>1)) tie=true;
-          ptsArr.forEach((pt,j)=>{ if (HOME_LANES.includes(j+1)) eventHome+=pt; else eventAway+=pt; });
-        }
-        homeTotal+=eventHome; awayTotal+=eventAway;
-        const block=document.getElementById(`event-${i}`);
-        const sc=document.createElement('div'); sc.className='score-summary';
-        if (!filled) sc.textContent='⏳ Not yet scored.';
-        else if (i<40 && filled<3) sc.textContent=`${homeTeam()}: ${formatPts(eventHome)} | ${awayTeam()}: ${formatPts(eventAway)} ⚠️ Missing scorer${tie?' 🤝 Tie':''}`;
-        else sc.textContent=`${homeTeam()}: ${formatPts(eventHome)} | ${awayTeam()}: ${formatPts(eventAway)}${tie?' 🤝 Tie':''}`;
-        block.appendChild(sc);
-        if (i<40 && (i+1)%10===0) {
-          const idx=Math.floor(i/10); let sH=0,sA=0;
-          for(let j=idx*10;j<=i;j++){ calculateEventScore(scores[j]).forEach((pt,k)=>{ if (HOME_LANES.includes(k+1)) sH+=pt; else sA+=pt; }); }
-          const st=document.createElement('div'); st.className='stroke-total'; st.textContent=`🔹 ${STROKES[idx]} Subtotal — ${homeTeam()}: ${formatPts(sH)} | ${awayTeam()}: ${formatPts(sA)}`; block.after(st);
-          const ta=document.createElement('div'); ta.className='stroke-total'; ta.textContent=`Total Score After ${STROKES[idx]} — ${homeTeam()}: ${formatPts(homeTotal)} | ${awayTeam()}: ${formatPts(awayTotal)}`; st.after(ta);
-        }
-        if (i===NUM_EVENTS-1) {
-          let rH=0,rA=0; scores.slice(40).forEach(r=>calculateEventScore(r).forEach((pt,k)=>{ if (HOME_LANES.includes(k+1)) rH+=pt; else rA+=pt; }));
-          const st=document.createElement('div'); st.className='stroke-total'; st.textContent=`🔹 Relays Subtotal — ${homeTeam()}: ${formatPts(rH)} | ${awayTeam()}: ${formatPts(rA)}`; block.after(st);
-          const ta=document.createElement('div'); ta.className='stroke-total'; ta.textContent=`Total Team Score — ${homeTeam()}: ${formatPts(homeTotal)} | ${awayTeam()}: ${formatPts(awayTotal)}`; st.after(ta);
-        }
-        const rt=document.createElement('div'); rt.className='running-total'; rt.textContent=`Team Score: ${homeTeam()}: ${formatPts(homeTotal)} - ${awayTeam()}: ${formatPts(awayTotal)}`; block.appendChild(rt);
-      }
-      const winEl=document.getElementById('meetResult'); if (homeTotal>=210||awayTotal>=210) { winEl.style.display='block'; winEl.textContent=`${homeTotal>=210?homeTeam():awayTeam()} wins! 🏆`; }
-    }
-
+    function homeTeam(){ return document.getElementById('homeTeam').value.trim()||'Home'; }
+    function awayTeam(){ return document.getElementById('awayTeam').value.trim()||'Away'; }
+    function updateStorage(){ localStorage.setItem('scores',JSON.stringify(scores)); }
+    function formatPts(v){ return Number.isInteger(v)? v : v.toFixed(1); }
+    function calculateEventScore(places){ const counts={1:0,2:0,3:0}; places.forEach(p=>{ if([1,2,3].includes(p)) counts[p]++; }); const total=9; let used=0; const res=Array(6).fill(0); if(counts[1]){ const pts=(total-(counts[2]*PLACE_POINTS[2]+counts[3]*PLACE_POINTS[3]))/counts[1]; places.forEach((p,i)=>{ if(p===1) res[i]=pts; }); used+=pts*counts[1]; } if(counts[2]){ const pts=(total-used-(counts[3]*PLACE_POINTS[3]))/counts[2]; places.forEach((p,i)=>{ if(p===2) res[i]=pts; }); used+=pts*counts[2]; } if(counts[3]){ const pts=(total-used)/counts[3]; places.forEach((p,i)=>{ if(p===3) res[i]=pts; }); } return res; }
+    function render(){ eventsContainer.innerHTML=''; for(let i=0;i<NUM_EVENTS;i++){ if(i%10===0){ const hd=document.createElement('div'); hd.className='stroke-header'; hd.textContent=STROKES[Math.floor(i/10)]; eventsContainer.appendChild(hd);} const eb=document.createElement('div'); eb.className='event-block'; eb.id=`event-${i}`; const label=i<40?`${AGE_GROUPS[i%10]} ${STROKES[Math.floor(i/10)]}`:RELAYS[i-40]; eb.innerHTML=`<h2>Event ${i+1}: ${label}</h2>`; const lr=document.createElement('div'); lr.className='lane-row'; const lanes=i>=40?[2,3]:[0,1,2,3,4,5]; for(let j=0;j<6;j++){ const ld=document.createElement('div'); ld.className='lane'; if(!lanes.includes(j)){ ld.innerHTML='&nbsp;'; lr.appendChild(ld); continue;} ld.innerHTML=`<div><strong>Lane ${j+1}</strong></div>`; const bs=document.createElement('div'); bs.className='buttons'; const maxP=i>=40?2:3; for(let p=1;p<=maxP;p++){ const b=document.createElement('button'); b.textContent=p; b.className=p===1?'gold':p===2?'silver':'bronze'; b.onclick=()=>{ scores[i][j]=scores[i][j]===p?"":p; updateStorage(); render(); }; if(scores[i][j]===p) b.classList.add('selected'); bs.appendChild(b);} ld.appendChild(bs); lr.appendChild(ld);} eb.appendChild(lr); eventsContainer.appendChild(eb);} calculateScore(); }
+    function calculateScore(){ let homeTotal=0, awayTotal=0; document.querySelectorAll('.score-summary, .running-total, .stroke-total').forEach(el=>el.remove()); scores.forEach((row,i)=>{ const block=document.getElementById(`event-${i}`); let filled=row.filter(p=>p).length; let eventHome=0, eventAway=0, tie=false; if(i>=40){ const homeWin=row[2]===1, awayWin=row[3]===1; if(homeWin&&awayWin){ eventHome=eventAway=2.5; tie=true;} else if(homeWin) eventHome=5; else if(awayWin) eventAway=5;} else { const ptsArr=calculateEventScore(row); const pc={}; row.forEach(p=>p&&(pc[p]=(pc[p]||0)+1)); if(Object.values(pc).some(c=>c>1)) tie=true; ptsArr.forEach((pt,j)=>{ if(HOME_LANES.includes(j+1)) eventHome+=pt; else eventAway+=pt; });} homeTotal+=eventHome; awayTotal+=eventAway; const sc=document.createElement('div'); sc.className='score-summary'; if(!filled) sc.textContent='⏳ Not yet scored.'; else if(i<40&&filled<3) sc.textContent=`${homeTeam()}: ${formatPts(eventHome)} | ${awayTeam()}: ${formatPts(eventAway)} ⚠️ Missing scorer${tie?' 🤝 Tie':''}`; else sc.textContent=`${homeTeam()}: ${formatPts(eventHome)} | ${awayTeam()}: ${formatPts(eventAway)}${tie?' 🤝 Tie':''}`; block.appendChild(sc); if(i<40&&(i+1)%10===0){ const idx=Math.floor(i/10); let sH=0,sA=0; for(let j=idx*10;j<=i;j++){ calculateEventScore(scores[j]).forEach((pt,k)=>{ if(HOME_LANES.includes(k+1)) sH+=pt; else sA+=pt; });} const st=document.createElement('div'); st.className='stroke-total'; st.textContent=`🔹 ${STROKES[idx]} Subtotal — ${homeTeam()}: ${formatPts(sH)} | ${awayTeam()}: ${formatPts(sA)}`; block.after(st); const ta=document.createElement('div'); ta.className='stroke-total'; ta.textContent=`Total Score After ${STROKES[idx]} — ${homeTeam()}: ${formatPts(homeTotal)} | ${awayTeam()}: ${formatPts(awayTotal)}`; st.after(ta);} if(i===NUM_EVENTS-1){ let rH=0,rA=0; scores.slice(40).forEach(r=>calculateEventScore(r).forEach((pt,k)=>{ if(HOME_LANES.includes(k+1)) rH+=pt; else rA+=pt;})); const st=document.createElement('div'); st.className='stroke-total'; st.textContent=`🔹 Relays Subtotal — ${homeTeam()}: ${formatPts(rH)} | ${awayTeam()}: ${formatPts(rA)}`; block.after(st); const ta=document.createElement('div'); ta.className='stroke-total'; ta.textContent=`Total Team Score — ${homeTeam()}: ${formatPts(homeTotal)} | ${awayTeam()}: ${formatPts(awayTotal)}`; st.after(ta);} const rt=document.createElement('div'); rt.className='running-total'; rt.textContent=`Team Score: ${homeTeam()}: ${formatPts(homeTotal)} - ${awayTeam()}: ${formatPts(awayTotal)}`; block.appendChild(rt);}); const winEl=document.getElementById('meetResult'); if(homeTotal>=210||awayTotal>=210){ winEl.style.display='block'; winEl.textContent=`${homeTotal>=210?homeTeam():awayTeam()} wins! 🏆`; }}
     document.getElementById('homeTeam').addEventListener('input', render);
     document.getElementById('awayTeam').addEventListener('input', render);
-    document.getElementById('resetScores').addEventListener('click', ()=>{ scores=Array(NUM_EVENTS).fill().map(()=>Array(6).fill("")); updateStorage(); document.getElementById('meetResult').style.display='none'; render(); });
+    document.getElementById('resetScores').addEventListener('click', () => { scores = Array(NUM_EVENTS).fill().map(() => Array(6).fill("")); updateStorage(); document.getElementById('meetResult').style.display = 'none'; render(); });
     render();
   </script>
 </body>
