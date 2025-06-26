@@ -154,21 +154,13 @@
       let poolIndex = 0;
       const pool = [];
 
-      // 3a. First-place swimmers take from positionPoints[0..]
-      for (let i = 0; i < counts[1]; i++) {
-        pool.push(positionPoints[poolIndex]);
-        poolIndex++;
-      }
-      // 3b. Second-place swimmers take next
-      for (let i = 0; i < counts[2]; i++) {
-        pool.push(positionPoints[poolIndex]);
-        poolIndex++;
-      }
-      // 3c. Third-place swimmers take next
-      for (let i = 0; i < counts[3]; i++) {
-        pool.push(positionPoints[poolIndex]);
-        poolIndex++;
-      }
+     // Build pool by slicing off exactly counts[place] entries per place
+    for (let place = 1; place <= 3; place++) {
+    for (let i = 0; i < counts[place]; i++) {
+        const scoreIdx = (place - 1) + i;
+        pool.push(positionPoints[scoreIdx] || 0);
+    }
+    }
 
       // 4. Prepare result array (6 lanes)
       const res = Array(6).fill(0);
